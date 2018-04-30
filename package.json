@@ -1,0 +1,30 @@
+{
+  "name": "react-express-typescript",
+  "version": "1.0.0",
+  "description": "react-express-typescript",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "tsc": "tsc",
+    "tscWatch": "tsc -w"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/heartpoints-org/react-express-typescript.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/heartpoints-org/react-express-typescript/issues"
+  },
+  "homepage": "https://github.com/heartpoints-org/react-express-typescript#readme",
+  "dependencies": {
+    "express": "^4.16.3",
+    "react": "^16.3.2"
+  },
+  "devDependencies": {
+    "@types/express": "^4.11.1",
+    "@types/react": "^16.3.13",
+    "typescript": "^2.8.3"
+  }
+}

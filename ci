@@ -1,0 +1,187 @@
+#!/usr/bin/env bash
+
+string:isEmpty() { local possiblyEmptyString=$1
+    [ -z "${possiblyEmptyString}" ]
+}
+
+string:notEmpty() { local possiblyEmptyString=$1
+    ! $(string:isEmpty "${possiblyEmptyString}")
+}
+
+log:info() { local args=$@
+    echo $@
+}
+
+bash:command:exists() { local commandName=$1
+    command -v "${commandName}" > /dev/null
+}
+
+bash:command:doesNotExist() { local commandName=$1
+    ! bash:command:exists ${commandName}
+}
+
+brew:install:brewItself() {
+    set -e
+    if brew:notInstalled; then
+        log:info "downloading brew..."
+        /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+    fi
+}
+
+brew:notInstalled() {
+    bash:command:doesNotExist "brew"
+}
+
+brew:run() { local args=$@
+    set -e
+    brew:install:brewItself
+    brew ${args}
+}
+
+brew:tap() { local tapName=$1
+    brew:run tap ${tapName}
+}
+
+brew:cask:notInstalled() {
+    brew:notInstalled || ! brew cask > /dev/null
+}
+
+brew:cask:install:brewCaskItself() {
+    if brew:cask:notInstalled; then
+        log:info "Installing brew cask..."
+        brew:tap caskroom/cask
+    fi
+}
+
+brew:cask() { local args=$@
+    set -e
+    brew:cask:install:brewCaskItself
+    brew:run cask ${args}
+}
+
+brew:cask:install() { local caskName=$1
+    brew:cask install ${caskName}
+}
+
+virtualbox:install() {
+    if bash:command:doesNotExist virtualbox; then
+        brew:cask:install virtualbox
+    fi
+}
+
+docker:machine:install() {
+    if bash:command:doesNotExist "docker-machine"; then
+        virtualbox:install
+        docker:install
+        base=https://github.com/docker/machine/releases/download/v0.14.0 &&
+            curl -L $base/docker-machine-$(uname -s)-$(uname -m) >/usr/local/bin/docker-machine &&
+            chmod +x /usr/local/bin/docker-machine
+    fi
+}
+
+docker:machine() { local args=$@
+    docker:machine:install
+    docker-machine ${args}
+}
+
+docker:machine:name() {
+    echo "react-express-typescript"
+}
+
+docker:machine:isHostDefined() {
+    set -e
+    docker:machine:install
+    local dockerHostDef="$(docker-machine ls | grep $(docker:machine:name))"
+    string:notEmpty "${dockerHostDef}"
+}
+
+docker:machine:createHost() {
+    set -e
+    if ! docker:machine:isHostDefined; then
+        docker:machine create "$(docker:machine:name)" --driver virtualbox
+    fi
+}
+
+docker:machine:connectClient() {
+    eval $(docker:machine env "$(docker:machine:name)")
+}
+
+docker:install() {
+    if bash:command:doesNotExist docker; then
+        log:info "Installing docker..."
+        brew:cask:install docker
+    fi
+}
+
+docker:cli() { local args=$@
+    docker:machine:createHost
+    docker:machine:connectClient
+    docker ${args}
+}
+
+docker:build() { local args=$@
+    docker:cli build ${args}
+}
+
+docker:buildAndTag() { local name=$1; local tag=$2; local dockerfilePath=$3; local buildContextPath=$4;
+    docker:build --tag "${name}:${tag}" -f "${dockerfilePath}" "${buildContextPath}"
+}
+
+docker:build:tag:forLocalDev() {
+    echo "$(whoami)-$(date +%s)"
+}
+
+docker:run() { local imageName=$1; local tag=$2; local args=${@:3}
+    docker:cli run "${imageName}:${tag}" ${args}
+}
+
+dev:environment:start() {
+    local tag="$(docker:build:tag:forLocalDev)"
+    local imageName="react-express-typescript-dev-environment"
+    docker:buildAndTag ${imageName} ${tag} ./Dockerfile .
+    docker:run ${imageName} ${tag}
+}
+
+dev:environment:bash() {
+    dev:environment:docker:run:mounted -it node:9-slim /bin/bash
+}
+
+dev:environment:docker:run:mounted() { local args=$@
+    docker:cli run -p 3000:3000 -v "$(pwd)":/react-express-typescript -w /react-express-typescript ${args}
+}
+
+dev:environment:tscWatch() {
+    dev:environment:docker:run:mounted node:9-slim npm run tscWatch
+}
+
+dev:environment:express:run() {
+    dev:environment:docker:run:mounted node:9-slim bin/react-express-typescript
+}
+
+docker:machine:ip() {
+    docker:machine inspect --format='{{.Driver.IPAddress}}' "$(docker:machine:name)"
+}
+
+dev:browser() {
+    open "http://$(docker:machine:ip):3000"
+}
+
+ci:functions:list() {
+    typeset -f | awk '/ \(\) $/ && !/^main / {print $1}' | sort | grep ":" | grep -v "private:"
+}
+
+ci:main() {
+    if string:notEmpty $1; then
+        $1 ${@:2}
+    else
+        log:info ""
+        log:info "Usage: ./ci {command} [options]"
+        log:info ""
+        log:info "Commands: "
+        log:info ""
+        ci:functions:list
+        log:info ""
+    fi
+}
+
+ci:main $@
