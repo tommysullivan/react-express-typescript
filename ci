@@ -12,6 +12,10 @@ log:info() { local args=$@
     echo $@
 }
 
+log:error() { local args=$@
+    echo "ERROR: ${@}"
+}
+
 bash:command:exists() { local commandName=$1
     command -v "${commandName}" > /dev/null
 }
@@ -142,20 +146,28 @@ dev:environment:start() {
     docker:run ${imageName} ${tag}
 }
 
+dev:environment:docker:baseImage() {
+    echo "node:9-slim"
+}
+
 dev:environment:bash() {
-    dev:environment:docker:run:mounted -it node:9-slim /bin/bash
+    dev:environment:docker:run:mounted -it "$(dev:environment:docker:baseImage)" /bin/bash
 }
 
 dev:environment:docker:run:mounted() { local args=$@
-    docker:cli run -p 3000:3000 -v "$(pwd)":/react-express-typescript -w /react-express-typescript ${args}
+    docker:cli run -v "$(pwd)":/react-express-typescript -w /react-express-typescript ${args}
 }
 
 dev:environment:tscWatch() {
-    dev:environment:docker:run:mounted node:9-slim npm run tscWatch
+    dev:environment:docker:run:mounted "$(dev:environment:docker:baseImage)" npm run tscWatch
+}
+
+dev:environment:webpackWatch() {
+    dev:environment:docker:run:mounted "$(dev:environment:docker:baseImage)" npm run webpackWatch
 }
 
 dev:environment:express:run() {
-    dev:environment:docker:run:mounted node:9-slim bin/react-express-typescript
+    dev:environment:docker:run:mounted -p 3000:3000 "$(dev:environment:docker:baseImage)" npm start
 }
 
 docker:machine:ip() {
@@ -170,17 +182,34 @@ ci:functions:list() {
     typeset -f | awk '/ \(\) $/ && !/^main / {print $1}' | sort | grep ":" | grep -v "private:"
 }
 
+ci:help() { local commandGrepFilter=$1
+    log:info ""
+    log:info "Usage: ./ci {command} [options]"
+    log:info ""
+    log:info "Commands: "
+    log:info ""
+    if string:isEmpty $commandGrepFilter; then
+        ci:functions:list
+    else
+        ci:functions:list | grep $commandGrepFilter
+        if [ $? != "0" ]; then
+            ci:functions:list
+        fi
+    fi
+    log:info ""
+}
+
 ci:main() {
     if string:notEmpty $1; then
-        $1 ${@:2}
+        if bash:command:exists $1; then
+            $1 ${@:2}
+        else
+            log:error "Command ${1} does not exist..."
+            ci:help $1
+            exit 1
+        fi
     else
-        log:info ""
-        log:info "Usage: ./ci {command} [options]"
-        log:info ""
-        log:info "Commands: "
-        log:info ""
-        ci:functions:list
-        log:info ""
+        ci:help
     fi
 }
 
