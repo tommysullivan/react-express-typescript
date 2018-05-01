@@ -9,7 +9,7 @@ async function main() {
 
     expressApp.set('port', portNumber);
 
-    ['src/main/public', 'node_modules'].forEach(
+    ['src/main/browser/public', 'node_modules', 'dist'].forEach(
         i => expressApp.use(express.static(i))
     );
 

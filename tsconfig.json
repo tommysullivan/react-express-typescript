@@ -1,9 +1,9 @@
 {
   "compilerOptions": {
     "outDir": "dist",
+    "module": "commonjs",
     "sourceMap": true,
     "target": "es5",
-    "module": "commonjs",
     "isolatedModules": false,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
@@ -13,9 +13,10 @@
     "noLib": false,
     "preserveConstEnums": true,
     "suppressImplicitAnyIndexErrors": true,
-    "rootDir": "./src",
+    "rootDir": "src",
     "moduleResolution": "node",
     "jsx": "react",
-    "lib": ["es6"]
-  }
+    "lib": ["dom", "es6"]
+  },
+  "exclude": [ "dist" ]
 }

@@ -6,7 +6,10 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "tsc": "tsc",
-    "tscWatch": "tsc -w"
+    "tscWatch": "tsc -w",
+    "start": "nodemon --watch configuration/config.json --watch package.json --watch dist/main/server bin/react-express-typescript",
+    "webpack": "webpack",
+    "webpackWatch": "webpack -w"
   },
   "repository": {
     "type": "git",
@@ -20,11 +23,19 @@
   "homepage": "https://github.com/heartpoints-org/react-express-typescript#readme",
   "dependencies": {
     "express": "^4.16.3",
-    "react": "^16.3.2"
+    "jquery": "^3.3.1",
+    "react": "^16.3.2",
+    "react-dom": "^16.3.2"
   },
   "devDependencies": {
     "@types/express": "^4.11.1",
-    "@types/react": "^16.3.13",
-    "typescript": "^2.8.3"
+    "@types/node": "^9.6.8",
+    "@types/react": "^16.3.2",
+    "@types/react-dom": "^16.0.5",
+    "nodemon": "^1.17.3",
+    "ts-loader": "^4.2.0",
+    "typescript": "^2.8.3",
+    "webpack": "^4.6.0",
+    "webpack-cli": "^2.1.2"
   }
 }
