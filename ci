@@ -12,8 +12,12 @@ log:info() { local args=$@
     echo $@
 }
 
+log:warn() { local args=$@
+    echo "WARN: $@"
+}
+
 log:error() { local args=$@
-    echo "ERROR: ${@}"
+    echo "ERROR: $@"
 }
 
 bash:command:exists() { local commandName=$1
@@ -88,26 +92,46 @@ docker:machine() { local args=$@
     docker-machine ${args}
 }
 
-docker:machine:name() {
+docker:machine:host:name() {
     echo "react-express-typescript"
 }
 
-docker:machine:isHostDefined() {
-    set -e
-    docker:machine:install
-    local dockerHostDef="$(docker-machine ls | grep $(docker:machine:name))"
-    string:notEmpty "${dockerHostDef}"
+docker:machine:host:isDefined() {
+    string:notEmpty "$(docker:machine ls --filter name=$(docker:machine:host:name) --quiet)"
 }
 
-docker:machine:createHost() {
-    set -e
-    if ! docker:machine:isHostDefined; then
-        docker:machine create "$(docker:machine:name)" --driver virtualbox
+docker:machine:host:isRunning() {
+    string:notEmpty "$(docker:machine ls --filter name=$(docker:machine:host:name) --filter state=Running --quiet)"
+}
+
+docker:machine:host:create() {
+    if ! docker:machine:host:isDefined; then
+        docker:machine create $(docker:machine:host:name) --driver virtualbox
+    fi
+}
+
+docker:machine:host:start() {
+    docker:machine:host:create
+    if ! docker:machine:host:isRunning; then
+        docker:machine start $(docker:machine:host:name)
+    fi
+}
+
+docker:machine:host:stop() {
+    if docker:machine:host:isRunning; then
+        docker:machine stop $(docker:machine:host:name)
+    fi
+}
+
+docker:machine:host:delete() {
+    if docker:machine:host:isDefined; then
+        docker:machine:host:stop
+        docker:machine rm -y $(docker:machine:host:name)
     fi
 }
 
 docker:machine:connectClient() {
-    eval $(docker:machine env "$(docker:machine:name)")
+    eval $(docker:machine env "$(docker:machine:host:name)")
 }
 
 docker:install() {
@@ -118,7 +142,7 @@ docker:install() {
 }
 
 docker:cli() { local args=$@
-    docker:machine:createHost
+    docker:machine:host:start
     docker:machine:connectClient
     docker ${args}
 }
@@ -139,11 +163,25 @@ docker:run() { local imageName=$1; local tag=$2; local args=${@:3}
     docker:cli run "${imageName}:${tag}" ${args}
 }
 
-dev:environment:start() {
-    local tag="$(docker:build:tag:forLocalDev)"
-    local imageName="react-express-typescript-dev-environment"
-    docker:buildAndTag ${imageName} ${tag} ./Dockerfile .
-    docker:run ${imageName} ${tag}
+bash:runInBackground() { local logFile=$1; local command=${@:2}; export clearLogs
+    log:info "Running ${command} in background. Logs written to ${logFile}..."
+    if string:notEmpty "${clearLogs}"; then
+        rm "${logFile}"
+    fi
+     $command >> "${logFile}" 2>&1 &
+}
+
+dev:environment:runEverything() {
+    mkdir -p logs
+    dev:environment:docker:run:mounted "echo 'docker container is ready and working...'"
+    bash:runInBackground "logs/tsc.log" dev:environment:tscWatch
+    bash:runInBackground "logs/webpack.log" dev:environment:webpackWatch
+    bash:runInBackground "logs/express.log" dev:environment:express:run
+    dev:browser
+}
+
+dev:environment:stopEverything() {
+    docker:machine:host:delete
 }
 
 dev:environment:docker:baseImage() {
@@ -171,11 +209,25 @@ dev:environment:express:run() {
 }
 
 docker:machine:ip() {
-    docker:machine inspect --format='{{.Driver.IPAddress}}' "$(docker:machine:name)"
+    docker:machine inspect --format='{{.Driver.IPAddress}}' "$(docker:machine:host:name)"
+}
+
+retry:until:notEmptyOutput() { local numberOfTimes=$1; local secondsBetweenTries=$2; local command=${@:3}
+    while string:isEmpty $(eval $command); do
+        sleep ${secondsBetweenTries}
+        numberOfTimes=$(($numberOfTimes - 1))
+        if [ "$numberOfTimes" -eq 0 ]; then
+            log:error "Number of retries exceeded in function retry:until:notEmptyOutput for command: ${command}"
+            exit 1
+        fi
+    done
+    eval $command
 }
 
 dev:browser() {
-    open "http://$(docker:machine:ip):3000"
+    local host="$(retry:until:notEmptyOutput 20 1 docker:machine:ip)"
+    open "http://${host}:3000"
+    log:warn "If the page does not come up, please wait a few seconds and refresh the browser"
 }
 
 ci:functions:list() {

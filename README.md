@@ -22,3 +22,10 @@ To view the site, run:
 # Known Bugs
 
 1. Dist folders are duplicated somehow by webpack
+
+# Release Notes
+
+## Version 1.0.0
+
+- Added hello world webpage
+- Added a single command to bring up an Express webserver and periodically compile Typescript code with tsc and webpack
