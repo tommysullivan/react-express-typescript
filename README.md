@@ -1,7 +1,7 @@
 react-express-typescript
 ========================
 
-This is a starting point template for a web ui that uses react, express, typescript technology stack, and 
+This is a starting point template for a web ui that uses the React, Express, TypeScript technology stack, and 
 aims to be "clone and go" ready for use with each merge to master.
 
 # Development
@@ -58,5 +58,5 @@ When finished working, clean up the development environment by running:
 
 ## Version 1.0.0
 
-- Added hello world webpage
-- Added a single command to bring up an Express webserver and periodically compile Typescript code with tsc and webpack
+- Single-Line Install & Run Dockerized Build and Dev Environment for Mac
+- Hello World React Webpage running in Express
