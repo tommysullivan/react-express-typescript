@@ -96,12 +96,16 @@ docker:machine:host:name() {
     echo "react-express-typescript"
 }
 
+docker:machine:host:existsWith() { local filterArgs=$@
+   string:notEmpty "$(docker:machine ls --quiet $filterArgs)"
+}
+
 docker:machine:host:isDefined() {
-    string:notEmpty "$(docker:machine ls --filter name=$(docker:machine:host:name) --quiet)"
+    docker:machine:host:existsWith --filter name=$(docker:machine:host:name)
 }
 
 docker:machine:host:isRunning() {
-    string:notEmpty "$(docker:machine ls --filter name=$(docker:machine:host:name) --filter state=Running --quiet)"
+    docker:machine:host:existsWith --filter name=$(docker:machine:host:name) --filter state=Running
 }
 
 docker:machine:host:create() {
@@ -175,7 +179,6 @@ dev:environment:runEverything() {
     dev:environment:stopEverything
     mkdir -p logs
     dev:environment:docker:run:mounted "$(dev:environment:docker:baseImage)" npm i
-    dev:environment:docker:run:mounted "$(dev:environment:docker:baseImage)" echo "docker container is ready and working..."
     bash:runInBackground "logs/tsc.log" dev:environment:tscWatch
     bash:runInBackground "logs/webpack.log" dev:environment:webpackWatch
     bash:runInBackground "logs/express.log" dev:environment:express:run
@@ -215,7 +218,6 @@ docker:machine:ip() {
 }
 
 retry:until:returnsNonEmptyString() { local numberOfTimes=$1; local secondsBetweenTries=$2; local command=${@:3}
-    #TODO: do not output twice
     local timesRemaining=$numberOfTimes
     local conditionMet=false
     until strings:areEqual $conditionMet true; do
