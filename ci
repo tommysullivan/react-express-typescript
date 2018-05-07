@@ -303,4 +303,8 @@ ci:main() {
     fi
 }
 
+dev:environment:processes() {
+    ps aux | grep react-express-typescript
+}
+
 ci:main $@
