@@ -1,0 +1,14 @@
+body {
+    font-family: "Verdana", serif;
+}
+
+h1 {
+    font-weight: normal;
+    margin-bottom: 0px;
+}
+
+h3 {
+    margin-top: 0px;
+    color: gray;
+    font-weight: normal;
+}
