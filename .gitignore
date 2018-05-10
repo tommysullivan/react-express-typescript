@@ -61,3 +61,5 @@ typings/
 *.iml
 dist
 /logs/
+
+.DS_Store
