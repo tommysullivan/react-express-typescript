@@ -1,0 +1,92 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dev-compile
+  labels:
+    app: dev-compile
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dev-compile
+  template:
+    metadata:
+      labels:
+        app: dev-compile
+    spec:
+      containers:
+      - name: tsc-watch
+        image: node:9-slim
+        workingDir: /dev-environment
+        command: [ "npm", "run", "tscWatch" ]
+        volumeMounts:
+        - mountPath: /dev-environment
+          name: local-project-folder
+      - name: webpack-watch
+        image: node:9-slim
+        workingDir: /dev-environment
+        command: [ "npm", "run", "webpackWatch" ]
+        resources:
+          requests:
+            memory: "4Gi"
+        volumeMounts:
+        - mountPath: /dev-environment
+          name: local-project-folder
+      volumes:
+      - name: local-project-folder
+        hostPath:
+          path: /dev-environment
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dev-express
+  labels:
+    app: dev-express
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dev-express
+  template:
+    metadata:
+      labels:
+        app: dev-express
+    spec:
+      containers:
+      - name: express
+        image: node:9-slim
+        workingDir: /dev-environment
+        command: [ "npm", "start" ]
+        ports:
+        - containerPort: 3000
+          name: http
+        volumeMounts:
+        - mountPath: /dev-environment
+          name: local-project-folder
+      volumes:
+      - name: local-project-folder
+        hostPath:
+          path: /dev-environment
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: express
+spec:
+  selector:
+    app: dev-express
+  type: NodePort
+  ports:
+  - name: http
+    port: 80
+    targetPort: http
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: express-ingress
+spec:
+  backend:
+    serviceName: express
+    servicePort: http

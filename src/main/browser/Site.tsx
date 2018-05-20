@@ -14,6 +14,6 @@ export class Site extends Component<ISiteProps, ISiteState> {
     }
 
     render():ReactElement<Site> {
-        return <p>Hello, {this.props.title}</p>
+        return <p>Myes, hello, mike, {this.props.title}</p>
     }
 }

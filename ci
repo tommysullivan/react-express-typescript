@@ -28,10 +28,15 @@ bash:command:doesNotExist() { local commandName=$1
     ! bash:command:exists ${commandName}
 }
 
+log:warningAboutRootPassword() {
+    log:warn "You may need to enter your root password. If you see a long pause, hit enter and follow prompts..."
+}
+
 brew:install:brewItself() {
     set -e
     if brew:notInstalled; then
         log:info "downloading brew..."
+        log:warningAboutRootPassword
         /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
     fi
 }
@@ -44,6 +49,10 @@ brew:run() { local args=$@
     set -e
     brew:install:brewItself
     brew ${args}
+}
+
+brew:install() { local packageNames=$@
+    brew:run install ${packageNames}
 }
 
 brew:tap() { local tapName=$1
@@ -71,13 +80,29 @@ brew:cask:install() { local caskName=$1
     brew:cask install ${caskName}
 }
 
+brew:cask:uninstall() { local caskName=$1
+    brew:cask uninstall ${caskName} -f
+}
+
+virtualbox:uninstall() {
+    brew:cask:uninstall virtualbox
+}
+
+log:warningAboutMacOSXSecurityPrompt() {
+    log:warn "On Mac OSX, this operation may be blocked by a security warning. If it is, please cancel and retry the operation after setting security preferences."
+}
+
 virtualbox:install() {
+    set -e
     if bash:command:doesNotExist virtualbox; then
+        log:warningAboutRootPassword
+        log:warningAboutMacOSXSecurityPrompt
         brew:cask:install virtualbox
     fi
 }
 
 docker:machine:install() {
+    set -e
     if bash:command:doesNotExist "docker-machine"; then
         virtualbox:install
         docker:install
@@ -87,13 +112,17 @@ docker:machine:install() {
     fi
 }
 
+docker:machine:uninstall() {
+    rm -f /usr/local/bin/docker-machine
+}
+
 docker:machine() { local args=$@
     docker:machine:install
     docker-machine ${args}
 }
 
 docker:machine:host:name() {
-    echo "react-express-typescript"
+    echo "default"
 }
 
 docker:machine:host:existsWith() { local filterArgs=$@
@@ -131,6 +160,8 @@ docker:machine:host:delete() {
     if docker:machine:host:isDefined; then
         docker:machine:host:stop
         docker:machine rm -y $(docker:machine:host:name)
+    else
+        log:warn "Could not delete machine as it did not exist"
     fi
 }
 
@@ -146,7 +177,8 @@ docker:install() {
 }
 
 docker:cli() { local args=$@
-    docker:machine:host:start
+    brew:cask:install docker-toolbox
+    docker:machine:host:create
     docker:machine:connectClient
     docker ${args}
 }
@@ -175,18 +207,19 @@ bash:runInBackground() { local logFile=$1; local command=${@:2}; export clearLog
      $command >> "${logFile}" 2>&1 &
 }
 
-dev:environment:runEverything() {
-    dev:environment:stopEverything
-    mkdir -p logs
-    dev:environment:docker:run:mounted "$(dev:environment:docker:baseImage)" npm i
-    bash:runInBackground "logs/tsc.log" dev:environment:tscWatch
-    bash:runInBackground "logs/webpack.log" dev:environment:webpackWatch
-    bash:runInBackground "logs/express.log" dev:environment:express:run
-    dev:browser:open
+dev:environment:start() {
+    retry:until:command:isSuccessful 30 3 minikube:dashboard
+    minikube:devEnvironment:deploy
+    dev:browser:open:fromMinikube
 }
 
-dev:environment:stopEverything() {
-    docker:machine:host:delete
+dev:environment:stop() {
+    minikube:stop
+}
+
+dev:environment:restart() {
+    dev:environment:stop
+    dev:environment:start
 }
 
 dev:environment:docker:baseImage() {
@@ -301,6 +334,162 @@ ci:main() {
     else
         ci:help
     fi
+}
+
+#asdf:isNotInstalled() {
+#    bash:command:doesNotExist asdf
+#}
+#
+#asdf:install:asdfItself() {
+#    if asdf:isNotInstalled; then
+#        brew:install asdf
+#    fi
+#}
+#
+#asdf:plugin-add() { local packageName=$1
+#    asdf:install:asdfItself
+#    asdf plugin-add ${packageName}
+#}
+
+minikube:install:latestVersion() {
+#    asdf:plugin-add minikube
+    if bash:command:doesNotExist minikube; then
+        brew:cask:install minikube
+    fi
+}
+
+project:rootDirectory() {
+    pwd
+}
+
+minikube:start() {
+    if minikube:isNotRunning; then
+        minikube:cli start --mount --mount-string="$(project:rootDirectory):/dev-environment" --memory 8192 --cpus 2
+    fi
+}
+
+minikube:stop() {
+    minikube:cli stop
+}
+
+minikube:delete() {
+    minikube:cli delete
+}
+
+minikube:restart() {
+    minikube:stop
+    minikube:start
+}
+
+minikube:cli() { local args=$@
+    minikube:install:latestVersion
+    minikube ${args}
+}
+
+minikube:isNotRunning() {
+    ! (minikube:cli status | grep "minikube: Running")
+}
+
+minikube:devEnvironment:deploy() {
+    kubectl:cli apply -f src/devEnvironment/devEnvironment.yml
+    helm:install:nginx:ingress:controller
+}
+
+kubectl:cli() { local args=$@
+    minikube:start
+    kubectl ${args}
+}
+
+docker:cli:forMinikube() { local args=$@
+    minikube:start
+    eval $(minikube docker-env)
+    docker ${args}
+}
+
+minikube:dashboard() {
+    minikube:cli dashboard
+}
+
+minikube:ssh() {
+    minikube:cli ssh
+}
+
+minikube:ip() {
+    minikube:cli ip
+}
+
+dev:browser:open:fromMinikube() {
+    open "http://$(minikube:ip)"
+}
+
+helm:upgradeOrInstall() { local args=$@
+    helm:cli upgrade --install ${args}
+}
+
+helm:install() { local args=$@
+    helm:cli install ${args}
+}
+
+helm:cli() { local args=$@
+    helm:install:helmItself
+    minikube:start
+    helm init
+    log:info "Waiting 10 seconds after helm init..."
+    sleep 10
+    #TODO: ensure tiller is ready and working before running
+    helm ${args}
+}
+
+helm:isNotInstalled() {
+    bash:command:doesNotExist helm
+}
+
+helm:install:helmItself() {
+    if helm:isNotInstalled; then
+        brew:install kubernetes-helm
+    fi
+}
+
+helm:nginx:ingress:controller:release:name() {
+    echo "my-nginx"
+}
+
+helm:install:nginx:ingress:controller() {
+    minikube:cli addons enable ingress
+    if helm:nginx:ingress:controller:isNotInstalled; then
+        helm:install stable/nginx-ingress --name $(helm:nginx:ingress:controller:release:name)
+    fi
+}
+
+helm:nginx:ingress:controller:isNotInstalled() {
+    ! helm:get $(helm:nginx:ingress:controller:release:name)
+}
+
+helm:get() { local chartName=$1
+    helm:cli get ${chartName}
+}
+
+minikube:webpack:restart() {
+    #TODO: Warn if it is not already running
+    kubectl:cli delete pod -l app=dev-compile
+}
+
+git:generateSSHKeyPair() { local email=$1
+    ssh-keygen -t rsa -b 4096 -C "${email}"
+    eval "$(ssh-agent -s)"
+    ssh:configure
+    ssh-add -K ~/.ssh/id_rsa
+    pbcopy < ~/.ssh/id_rsa.pub
+    log:info "Your SSH public key has been copied to the clipboard, you may add it to github.com"
+}
+
+ssh:configure() {
+    cat > ~/.ssh/config << EOF
+    Host *
+     AddKeysToAgent yes
+     UseKeychain yes
+     IdentityFile ~/.ssh/id_rsa
+EOF
 }
 
 ci:main $@

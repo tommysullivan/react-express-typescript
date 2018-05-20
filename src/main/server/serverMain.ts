@@ -21,6 +21,7 @@ async function main() {
                 process.exit(1);
             }
             else console.log(`web server is running at ${myUrl}`);
+            console.log('myes');
         }
     );
 }

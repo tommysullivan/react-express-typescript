@@ -7,7 +7,7 @@ module.exports = {
             {
                 test: /\.tsx?$/,
                 use: 'ts-loader',
-                exclude: [ /node_modules/ ]
+                exclude: [ /node_modules/, /dist/, /\.idea/ ]
             }
         ]
     },
@@ -17,5 +17,10 @@ module.exports = {
     output: {
         filename: 'bundle.js',
         path: path.resolve(__dirname, 'dist')
+    },
+    watchOptions: {
+        aggregateTimeout: 300,
+        poll: 1000,
+        ignored: [ /node_modules/, /dist/, /\.idea/ ]
     }
 };

@@ -7,9 +7,9 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "tsc": "tsc",
     "tscWatch": "tsc -w",
-    "start": "nodemon --watch configuration/config.json --watch package.json --watch dist/main/server bin/react-express-typescript",
+    "start": "bin/react-express-typescript",
     "webpack": "webpack",
-    "webpackWatch": "webpack -w"
+    "webpackWatch": "webpack --watch-poll"
   },
   "repository": {
     "type": "git",
@@ -22,6 +22,7 @@
   },
   "homepage": "https://github.com/heartpoints-org/react-express-typescript#readme",
   "dependencies": {
+    "brigade": "^0.4.14",
     "express": "^4.16.3",
     "jquery": "^3.3.1",
     "material-ui": "^0.20.0",
